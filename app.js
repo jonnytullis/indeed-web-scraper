@@ -22,18 +22,18 @@ async function fetchData() {
       const result = { title: '', companyName: '', location: '', description: '' }
 
       result.title = card.querySelector('.jobTitle > span')?.innerText
+      result.description = card.querySelector('.job-snippet')?.innerText?.trim()?.replace('\n', '')
 
       const companyHTML = String(card.querySelector('.company_location > pre')?.innerText)
       const companyRoot = HTMLParser.parse(companyHTML)
 
       result.companyName = companyRoot.querySelector('.companyName')?.innerText
       result.location = companyRoot.querySelector('.companyLocation')?.innerText
-      result.description = card.querySelector('.job-snippet')?.innerText?.trim()
 
       result.title = decode(result.title)
       result.companyName = decode(result.companyName)
       result.location = decode(result.location)
-      result.description = decode(result.description?.replace('\n', ''))
+      result.description = decode(result.description)
 
       results.push(result)
     })
