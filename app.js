@@ -1,53 +1,81 @@
-const axios = require('axios')
-const HTMLParser = require('node-html-parser')
-const { decode } = require('html-entities')
+const axios = require('axios');
+const HTMLParser = require('node-html-parser');
 
-const companySearchName = 'apple'
-const jobPosition = 'software engineer'
+function getRandomUserAgent() {
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 12_0_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 15_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/95.0.4638.50 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.50 Mobile Safari/537.36',
+    'Mozilla/5.0 (Linux; Android 10; LM-Q720) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.50 Mobile Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 12.0; rv:94.0) Gecko/20100101 Firefox/94.0',
+    'Mozilla/5.0 (X11; Linux i686; rv:94.0) Gecko/20100101 Firefox/94.0',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 12_0_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/39.0 Mobile/15E148 Safari/605.1.15'
+  ]
 
-const url = `https://www.indeed.com/jobs?q=${encodeURI(jobPosition)}%20company%3A${encodeURI(companySearchName)}`
+  let random_number = Math.floor(Math.random() * userAgents.length);
+  return userAgents[random_number];
+}
 
-async function fetchData() {
-  const results = []
+function getRandomCompany() {
+  const companies = ['apple', 'microsoft', 'amazon', 'taco bell', 'family dollar', 'starbucks',
+    'ally bank', 'fed ex', '7-eleven', 'uber', 'lyft', 'kfc', 'mcdonalds', 'northrop', 'state farm',
+    'geico', 'dunkin donuts', 'sonic', 'walmart', 'target', 'alorica', 'wells fargo', 'ups', 'macys',
+    'chase', 'autozone', 'vivian', 'walgreens', 'cvs', 'kroger', 'sprouts', 'winn dixie', 'publix',
+    'safeway', 'albertsons', 'meijer', 'fresh thyme market'];
 
-  const res = await axios.get(url)
-  const root = HTMLParser.parse(res.data)
+  const rand_index = Math.floor(Math.random() * companies.length);
+  return companies[rand_index];
+}
 
-  const jobListContainer = root.querySelector('#mosaic-zone-jobcards')
+function getIndeedRequest() {
+  // See https://proxy.webshare.io/proxy/rotating?
+  const username = '';
+  const password = '';
 
-  if (jobListContainer) {
-    const cards = jobListContainer.querySelectorAll('.slider_item')
+  const proxy = {
+    host: 'p.webshare.io',
+    port: 80,
+    auth: { username, password }
+  };
 
-    cards?.forEach((card) => {
-      const result = { title: '', companyName: '', location: '', description: '' }
+  const url = `https://www.indeed.com/companies/search?q=${getRandomCompany()}`;
+  const options = {
+    proxy,
+    headers: {
+      'User-Agent': getRandomUserAgent()
+    }
+  }
 
-      result.title = card.querySelector('.jobTitle > span')?.innerText
-      result.description = card.querySelector('.job-snippet')?.innerText?.trim()?.replace('\n', '')
-
-      const companyHTML = String(card.querySelector('.company_location > pre')?.innerText)
-      const companyRoot = HTMLParser.parse(companyHTML)
-
-      result.companyName = companyRoot.querySelector('.companyName')?.innerText
-      result.location = companyRoot.querySelector('.companyLocation')?.innerText
-
-      result.title = decode(result.title)
-      result.companyName = decode(result.companyName)
-      result.location = decode(result.location)
-      result.description = decode(result.description)
-
-      results.push(result)
-    })
-
-    results.forEach(result => {
-      console.log('Job Title:', result.title)
-      console.log('Company:', result.companyName)
-      console.log('Location:', result.location)
-      console.log('Job Description:', result.description)
-      console.log('\n--------------------------------------------\n')
-    })
-  } else {
-    console.log(`No "${jobPosition}" positions were found for the company "${companySearchName}"`)
+  try {
+    return axios.get(url, options);
+  } catch (e) {
+    console.log("Error scraping site, please try again");
+    return null;
   }
 }
 
-fetchData()
+async function testLargeLoadScrape() {
+  const requests = [];
+  for (let i = 0; i < 200; i++) {
+    requests.push(getIndeedRequest());
+    await new Promise((resolve) => setTimeout(resolve, 500)); // Wait 500ms
+  }
+
+  const responses = await Promise.allSettled(requests);
+
+  responses.forEach((res) => {
+    if (res.status === 'fulfilled' && res.value?.data) {
+      const root = HTMLParser.parse(res.value.data);
+      const textEl = root.querySelector('#main > div > div.css-1aehwuu-Box.eu4oa1w0 > section > h2');
+      console.log('TEXT:', textEl?.text);
+    } else {
+      console.log('FAILED', res.reason?.response?.statusText)
+    }
+  })
+}
+
+testLargeLoadScrape();
